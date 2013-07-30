@@ -31,12 +31,16 @@
 
 @implementation InAppPurchaseManager
 
--(void) setup:(NSMutableArray*)arguments withDict:(NSMutableDictionary*)options {
+-(void) setup:(CDVInvokedUrlCommand *)command {
     [[SKPaymentQueue defaultQueue] addTransactionObserver:self];
 }
 
-- (void) requestProductData:(NSMutableArray*)arguments withDict:(NSMutableDictionary*)options
+- (void) requestProductData:(CDVInvokedUrlCommand *)command
 {
+    CDVPluginResult *pluginResult;
+    NSString *callbackId = command.callbackId;
+    NSArray* arguments = command.arguments;
+
 	if([arguments count] < 3) {
 		return;
 	}
@@ -58,8 +62,12 @@
  * Request product data for the productIds given in the option with
  * key "productIds". See js for further documentation.
  */
-- (void) requestProductsData:(NSMutableArray*)arguments withDict:(NSMutableDictionary*)options
+- (void) requestProductsData:(CDVInvokedUrlCommand *)command
 {
+    CDVPluginResult *pluginResult;
+    NSString *callbackId = command.callbackId;
+    NSArray* arguments = command.arguments;
+
 	if([arguments count] < 1) {
 		return;
 	}
@@ -77,9 +85,13 @@
 	[productsRequest start];
 }
 
-- (void) makePurchase:(NSMutableArray*)arguments withDict:(NSMutableDictionary*)options
+- (void) makePurchase:(CDVInvokedUrlCommand *)command
 {
-	NSLog(@"About to do IAP");
+    CDVPluginResult *pluginResult;
+    NSString *callbackId = command.callbackId;
+    NSArray* arguments = command.arguments;
+
+    NSLog(@"About to do IAP");
 	if([arguments count] < 1) {
 		return;
 	}
@@ -95,7 +107,7 @@
 	[[SKPaymentQueue defaultQueue] addPayment:payment];
 }
 
-- (void) restoreCompletedTransactions:(NSMutableArray*)arguments withDict:(NSMutableDictionary*)options
+- (void) restoreCompletedTransactions:(CDVInvokedUrlCommand *)command
 {
     [[SKPaymentQueue defaultQueue] restoreCompletedTransactions];
 }

@@ -5,9 +5,12 @@
  * Copyright (c) Guillaume Charhon 2012
  */
 
+var argscheck = require('cordova/argscheck'),
+    exec = require('cordova/exec');
+
 var InAppPurchaseManager = function() { 
-	cordova.exec('InAppPurchaseManager.setup');
-}
+	cordova.exec(function(){}, function(){}, 'InAppPurchaseManager', '.setup', []);
+};
 
 /**
  * Makes an in-app purchase. 
@@ -17,12 +20,8 @@ var InAppPurchaseManager = function() {
  */
 
 InAppPurchaseManager.prototype.makePurchase = function(productId, quantity) {
-	var q = parseInt(quantity);
-	if(!q) {
-		q = 1;
-	}
-    return cordova.exec('InAppPurchaseManager.makePurchase', productId, q);		
-}
+	cordova.exec(function(){}, function(){}, 'InAppPurchaseManager', 'makePurchase', [ productId, quantity ]);	
+};
 
 /**
  * Asks the payment queue to restore previously completed purchases.
@@ -31,8 +30,8 @@ InAppPurchaseManager.prototype.makePurchase = function(productId, quantity) {
  */
 
 InAppPurchaseManager.prototype.restoreCompletedTransactions = function() {
-    return cordova.exec('InAppPurchaseManager.restoreCompletedTransactions');		
-}
+    return cordova.exec(function(){}, function(){}, 'InAppPurchaseManager', 'restoreCompletedTransactions', []);		
+};
 
 
 /**
@@ -49,16 +48,16 @@ InAppPurchaseManager.prototype.requestProductData = function(productId, successC
 	window.plugins.inAppPurchaseManager.callbackMap[key] = {
     success: function(productId, title, description, price ) {
         if (productId == '__DONE') {
-            delete window.plugins.inAppPurchaseManager.callbackMap[key]
+            delete window.plugins.inAppPurchaseManager.callbackMap[key];
             return;
         }
         successCallback(productId, title, description, price);
     },
     fail: failCallback
-	}
+	};
 	var callback = 'window.plugins.inAppPurchaseManager.callbackMap.' + key;
-    cordova.exec('InAppPurchaseManager.requestProductData', productId, callback + '.success', callback + '.fail');	
-}
+    cordova.exec(callback + '.success', callback + '.fail', 'InAppPurchaseManager','requestProductData', [ productId ]);	
+};
 
 /**
  * Retrieves localised product data, including price (as localised
@@ -91,7 +90,7 @@ InAppPurchaseManager.prototype.requestProductsData = function(productIds, callba
 		callback(validProducts, invalidProductIds);
 	};
 	var callbackName = 'window.plugins.inAppPurchaseManager.callbackMap.' + key;
-	cordova.exec('InAppPurchaseManager.requestProductsData', callbackName, {productIds: productIds});
+	cordova.exec(callbackName, function(){}, 'InAppPurchaseManager','requestProductsData', [ productIds ]);
 };
 
 /* function(transactionIdentifier, productId, transactionReceipt) */
@@ -166,21 +165,21 @@ InAppPurchaseManager.prototype.runQueue = function() {
 	if(!this.eventQueue.length) {	
 		this.unWatchQueue();
 	}
-}
+};
 
 InAppPurchaseManager.prototype.watchQueue = function() {
 	if(this.timer) {
 		return;
 	}
 	this.timer = setInterval("window.plugins.inAppPurchaseManager.runQueue()", 10000);
-}
+};
 
 InAppPurchaseManager.prototype.unWatchQueue = function() {
 	if(this.timer) {
 		clearInterval(this.timer);
 		this.timer = null;
 	}
-}
+};
 
 
 InAppPurchaseManager.prototype.callbackMap = {};
@@ -188,15 +187,5 @@ InAppPurchaseManager.prototype.callbackIdx = 0;
 InAppPurchaseManager.prototype.eventQueue = [];
 InAppPurchaseManager.prototype.timer = null;
 
-cordova.addConstructor(function()  {
-					   
-					   // shim to work in 1.5 and 1.6
-					   if (!window.Cordova) {
-					   window.Cordova = cordova;
-					   };
-					   
-					   if(!window.plugins) {
-					   window.plugins = {};
-					   }
-					   window.plugins.inAppPurchaseManager = InAppPurchaseManager.manager = new InAppPurchaseManager();
-					   });
+module.exports = InAppPurchaseManager.manager = new InAppPurchaseManager();
+

@@ -8,28 +8,20 @@
 
 #import <Foundation/Foundation.h>
 #import <StoreKit/StoreKit.h>
-
-#ifdef CORDOVA_FRAMEWORK
 #import <Cordova/CDVPlugin.h>
-#else
-#import "CDVPlugin.h"
-#endif
-
-#ifdef CORDOVA_FRAMEWORK
 #import <Cordova/NSData+Base64.h>
-#else
-#import "NSData+Base64.h"
-#endif
 
 #import "SKProduct+LocalizedPrice.h"
 
 @interface InAppPurchaseManager : CDVPlugin <SKPaymentTransactionObserver> {
 
 }
-- (void) setup:(NSMutableArray*)arguments withDict:(NSMutableDictionary*)options;
-- (void) makePurchase:(NSMutableArray*)arguments withDict:(NSMutableDictionary*)options;
-- (void) requestProductData:(NSMutableArray*)arguments withDict:(NSMutableDictionary*)options;
-- (void) requestProductsData:(NSMutableArray*)arguments withDict:(NSMutableDictionary*)options;
+- (void) setup:(CDVInvokedUrlCommand *)command;
+- (void) requestProductData:(CDVInvokedUrlCommand *)command;
+- (void) requestProductsData:(CDVInvokedUrlCommand *)command;
+- (void) makePurchase:(CDVInvokedUrlCommand *)command;
+- (void) restoreCompletedTransactions:(CDVInvokedUrlCommand *)command;
+
 - (void) paymentQueue:(SKPaymentQueue *)queue updatedTransactions:(NSArray *)transactions;
 - (void) paymentQueue:(SKPaymentQueue *)queue restoreCompletedTransactionsFailedWithError:(NSError *)error;
 - (void) paymentQueueRestoreCompletedTransactionsFinished:(SKPaymentQueue *)queue;
