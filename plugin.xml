@@ -3,7 +3,7 @@
 <plugin xmlns="http://www.phonegap.com/ns/plugins/1.0"
            id="org.apache.cordova.plugin.appleiap"
       version="0.1.0">
-    <name>PayPalMPL</name>
+    <name>InAppPurchaseManager</name>
 
     <js-module src="www/InAppPurchaseManager.js" name="InAppPurchaseManager">
         <clobbers target="window.plugins.InAppPurchaseManager" />
@@ -12,7 +12,7 @@
      <!-- ios -->
      <platform name="ios">    
          <config-file target="config.xml" parent="/*">
-             <feature name="InAppPurcaseManager">
+             <feature name="InAppPurchaseManager">
                  <param name="ios-package" value="InAppPurchaseManager" />
              </feature>
          </config-file>
