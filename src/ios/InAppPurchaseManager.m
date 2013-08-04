@@ -48,7 +48,7 @@
 	NSSet *productIdentifiers = [NSSet setWithObject:[arguments objectAtIndex:0]];
     SKProductsRequest *productsRequest = [[SKProductsRequest alloc] initWithProductIdentifiers:productIdentifiers];
 
-	ProductsRequestDelegate* delegate = [[[ProductsRequestDelegate alloc] init] retain];
+	ProductsRequestDelegate* delegate = [[ProductsRequestDelegate alloc] init];
 	delegate.command = self;
 	delegate.successCallback = [arguments objectAtIndex:1];
 	delegate.failCallback = [arguments objectAtIndex:2];
@@ -72,12 +72,12 @@
 		return;
 	}
 
-	NSSet *productIdentifiers = [NSSet setWithArray:[options objectForKey:@"productIds"]];
+	NSSet *productIdentifiers = [NSSet setWithArray:[arguments objectAtIndex:0]];
 
 	NSLog(@"Getting products data");
 	SKProductsRequest *productsRequest = [[SKProductsRequest alloc] initWithProductIdentifiers:productIdentifiers];
 
-	BatchProductsRequestDelegate* delegate = [[[BatchProductsRequestDelegate alloc] init] retain];
+	BatchProductsRequestDelegate* delegate = [[BatchProductsRequestDelegate alloc] init];
 	delegate.command = self;
 	delegate.callback = [arguments objectAtIndex:0];
 
@@ -216,17 +216,13 @@
 	NSLog(@"done iap");
 
 	[command writeJavascript: [NSString stringWithFormat:@"%@('__DONE')", successCallback]];
-
-	[request release];
-	[self release];
 }
 
 - (void) dealloc
 {
-    [successCallback release];
-    [failCallback release];
-	[command release];
-    [super dealloc];
+    successCallback = nil;
+    failCallback = nil;
+    command = nil;
 }
 
 
@@ -260,14 +256,12 @@
 	NSString *js = [NSString stringWithFormat:@"%@.apply(plugins.inAppPurchaseManager, %@);", callback, [callbackArgs JSONSerialize]];
 	[command writeJavascript: js];
 
-	[request release];
-	[self release];
+    request = nil;
 }
 
 - (void) dealloc {
-	[callback release];
-	[command release];
-	[super dealloc];
+    callback = nil;
+    command = nil;
 }
 
 @end
