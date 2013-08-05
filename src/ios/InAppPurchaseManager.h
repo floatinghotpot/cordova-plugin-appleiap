@@ -13,27 +13,14 @@
 
 #import "SKProduct+LocalizedPrice.h"
 
-@interface InAppPurchaseManager : CDVPlugin <SKPaymentTransactionObserver> {
-
+@interface InAppPurchaseManager : CDVPlugin <SKProductsRequestDelegate, SKPaymentTransactionObserver> {
+    NSMutableDictionary * productRequests;
+    NSMutableDictionary * cachedProducts;
 }
+
 - (void) setup:(CDVInvokedUrlCommand *)command;
 - (void) requestProductData:(CDVInvokedUrlCommand *)command;
 - (void) makePurchase:(CDVInvokedUrlCommand *)command;
 - (void) restoreCompletedTransactions:(CDVInvokedUrlCommand *)command;
 
-- (void) paymentQueue:(SKPaymentQueue *)queue updatedTransactions:(NSArray *)transactions;
-- (void) paymentQueue:(SKPaymentQueue *)queue restoreCompletedTransactionsFailedWithError:(NSError *)error;
-- (void) paymentQueueRestoreCompletedTransactionsFinished:(SKPaymentQueue *)queue;
-
 @end
-
-@interface ProductsRequestDelegate : NSObject <SKProductsRequestDelegate>{
-	InAppPurchaseManager* command;
-	NSString* callbackId;
-}
-
-@property (nonatomic, retain) InAppPurchaseManager* command;
-@property (nonatomic, copy) NSString* callbackId;
-
-@end;
-

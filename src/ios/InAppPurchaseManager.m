@@ -14,34 +14,76 @@
 @implementation InAppPurchaseManager
 
 -(void) setup:(CDVInvokedUrlCommand *)command {
+    productRequests = [NSMutableDictionary dictionary];
+    cachedProducts = [NSMutableDictionary dictionary];
+
     [[SKPaymentQueue defaultQueue] addTransactionObserver:self];
+}
+
+- (void) dealloc
+{
+    [productRequests removeAllObjects];
+    productRequests = nil;
+    
+    [cachedProducts removeAllObjects];
+    cachedProducts = nil;
 }
 
 - (void) requestProductData:(CDVInvokedUrlCommand *)command
 {
-    CDVPluginResult *pluginResult;
     NSString *callbackId = command.callbackId;
     NSArray* arguments = command.arguments;
 
 	if([arguments count] < 1) {
 		return;
 	}
+    
 	NSLog(@"Getting product data");
 	NSSet *productIdentifiers = [NSSet setWithObject:[arguments objectAtIndex:0]];
-    SKProductsRequest *productsRequest = [[SKProductsRequest alloc] initWithProductIdentifiers:productIdentifiers];
-
-	ProductsRequestDelegate* delegate = [[ProductsRequestDelegate alloc] init];
-	delegate.command = self;
-	delegate.callbackId = callbackId;
-
-    productsRequest.delegate = delegate;
-    [productsRequest start];
+    SKProductsRequest *request = [[SKProductsRequest alloc] initWithProductIdentifiers:productIdentifiers];
+    
+    [productRequests setValue:request forKey:callbackId];
+    request.delegate = self;
+    [request start];
 }
+
+- (void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response
+{
+	NSLog(@"got iap product response");
+    
+	NSMutableArray * validProducts = [NSMutableArray array];
+    for (SKProduct *product in response.products) {
+        [cachedProducts setObject:product forKey:product.productIdentifier];
+
+    	NSDictionary * item = [NSDictionary dictionaryWithObjectsAndKeys:
+                               NILABLE(product.productIdentifier), @"id",
+                               NILABLE(product.localizedTitle), @"title",
+                               NILABLE(product.localizedDescription), @"description",
+                               NILABLE(product.localizedPrice), @"price",
+                               nil];
+    	[validProducts addObject:item];
+    }
+    
+    NSDictionary * reply = [NSDictionary dictionaryWithObjectsAndKeys:
+                            validProducts, @"validProducts",
+                            NILABLE(response.invalidProductIdentifiers), @"invalidIds",
+                            nil];
+    
+    for( NSString *callbackId in productRequests) {
+        SKProductsRequest * req = [productRequests objectForKey:callbackId];
+        if( req == request ) {
+            CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:reply];
+            [self.commandDelegate sendPluginResult:pluginResult callbackId:callbackId];
+            [productRequests removeObjectForKey:callbackId];
+            request.delegate = nil;
+            break;
+        }
+    }
+}
+
 
 - (void) makePurchase:(CDVInvokedUrlCommand *)command
 {
-    CDVPluginResult *pluginResult;
-    NSString *callbackId = command.callbackId;
     NSArray* arguments = command.arguments;
 
     NSLog(@"About to do IAP");
@@ -49,15 +91,18 @@
 		return;
 	}
 
-    SKMutablePayment *payment = [SKMutablePayment paymentWithProductIdentifier:[arguments objectAtIndex:0]];
-
-	if([arguments count] > 1) {
-		id quantity = [arguments objectAtIndex:1];
-		if ([quantity respondsToSelector:@selector(integerValue)]) {
-			payment.quantity = [quantity integerValue];
-		}
-	}
-	[[SKPaymentQueue defaultQueue] addPayment:payment];
+    NSString * productId = [arguments objectAtIndex:0];
+    SKProduct * product = [cachedProducts objectForKey:productId];
+    if( product != nil ) {
+        SKMutablePayment *payment = [SKMutablePayment paymentWithProduct:product];
+        if([arguments count] > 1) {
+            id quantity = [arguments objectAtIndex:1];
+            if ([quantity respondsToSelector:@selector(integerValue)]) {
+                payment.quantity = [quantity integerValue];
+            }
+        }
+        [[SKPaymentQueue defaultQueue] addPayment:payment];
+    }
 }
 
 - (void) restoreCompletedTransactions:(CDVInvokedUrlCommand *)command
@@ -70,7 +115,7 @@
 //
 - (void)paymentQueue:(SKPaymentQueue *)queue updatedTransactions:(NSArray *)transactions
 {
-	NSString *state;
+	NSString *state, *jsString;
     for (SKPaymentTransaction *transaction in transactions) {
 		state = @"";
         switch (transaction.transactionState) {
@@ -79,7 +124,7 @@
 
             case SKPaymentTransactionStatePurchased:
 				state = @"PaymentTransactionStatePurchased";
-				NSString *jsString =
+				jsString =
 						@"cordova.fireDocumentEvent('onInAppPurchaseSuccess',"
 						@"{ 'productId': '%@', 'transactionId': '%@', 'transactionReceipt' : '%@' });";
 				[self writeJavascript:[NSString stringWithFormat:jsString,
@@ -90,7 +135,7 @@
 
 			case SKPaymentTransactionStateFailed:
 				state = @"PaymentTransactionStateFailed";
-				NSString *jsString =
+				jsString =
 					@"cordova.fireDocumentEvent('onInAppPurchaseFailed',"
 					@"{ 'errorCode': '%@', 'errorMsg' : '%@' });";
 				[self writeJavascript:[NSString stringWithFormat:jsString,
@@ -100,13 +145,13 @@
 
 			case SKPaymentTransactionStateRestored:
 				state = @"PaymentTransactionStateRestored";
-				NSString *jsString =
+				jsString =
 						@"cordova.fireDocumentEvent('onInAppPurchaseRestored',"
 						@"{ 'productId': '%@', 'transactionId': '%@', 'transactionReceipt' : '%@' });";
 				[self writeJavascript:[NSString stringWithFormat:jsString,
 				                       transaction.originalTransaction.payment.productIdentifier,
 				                       transaction.originalTransaction.transactionIdentifier,
-				                       [[transaction transactionReceipt] base64EncodedString];
+				                       [[transaction transactionReceipt] base64EncodedString]]];
 				break;
 
             default:
@@ -131,50 +176,8 @@
 
 - (void)paymentQueueRestoreCompletedTransactionsFinished:(SKPaymentQueue *)queue
 {
-	[self writeJavascript:
-	@"cordova.fireDocumentEvent('onRestoreCompletedTransactionsFinished');"];
+	[self writeJavascript:@"cordova.fireDocumentEvent('onRestoreCompletedTransactionsFinished');"];
 }
-
-@end
-
-@implementation ProductsRequestDelegate
-
-@synthesize command, callbackId;
-
-- (void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response
-{
-	NSLog(@"got iap product response");
-
-	NSMutableArray * validProducts = [NSMutableArray array];
-    for (SKProduct *product in response.products) {
-    	NSDictionary * item = [NSDictionary dictionaryWithObjectsAndKeys:
-    	                                  NILABLE(product.productIdentifier), @"id",
-    	                                  NILABLE(product.localizedTitle), @"title",
-    	                                  NILABLE(product.localizedDescription), @"description",
-    	                                  NILABLE(product.localizedPrice), @"price",
-    	                                  nil];
-    	[validProducts addObject:item];
-    }
-
-    NSDictionary * reply = [NSDictionary dictionaryWithObjectsAndKeys:
-                            validProducts, @"validProducts",
-                            NILABLE(response.invalidProductIdentifiers), @"invalidIds",
-                            nil];
-
-    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:reply];
-	[command.commandDelegate sendPluginResult:pluginResult callbackId:callbackId];
-
-	request.delegate = nil;
-	request = nil;
-	response = nil;
-}
-
-- (void) dealloc
-{
-	callbackId = nil;
-    command = nil;
-}
-
 
 @end
 
