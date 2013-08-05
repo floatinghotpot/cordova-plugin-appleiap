@@ -18,7 +18,6 @@
 }
 - (void) setup:(CDVInvokedUrlCommand *)command;
 - (void) requestProductData:(CDVInvokedUrlCommand *)command;
-- (void) requestProductsData:(CDVInvokedUrlCommand *)command;
 - (void) makePurchase:(CDVInvokedUrlCommand *)command;
 - (void) restoreCompletedTransactions:(CDVInvokedUrlCommand *)command;
 
@@ -29,24 +28,12 @@
 @end
 
 @interface ProductsRequestDelegate : NSObject <SKProductsRequestDelegate>{
-	NSString* successCallback;
-	NSString* failCallback;
-
 	InAppPurchaseManager* command;
+	NSString* callbackId;
 }
 
-@property (nonatomic, copy) NSString* successCallback;
-@property (nonatomic, copy) NSString* failCallback;
 @property (nonatomic, retain) InAppPurchaseManager* command;
+@property (nonatomic, copy) NSString* callbackId;
 
 @end;
 
-@interface BatchProductsRequestDelegate : NSObject <SKProductsRequestDelegate> {
-	NSString* callback;
-	InAppPurchaseManager* command;
-}
-
-@property (nonatomic, copy) NSString* callback;
-@property (nonatomic, retain) InAppPurchaseManager* command;
-
-@end;

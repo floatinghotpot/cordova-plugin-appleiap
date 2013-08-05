@@ -8,55 +8,10 @@
 var argscheck = require('cordova/argscheck'),
     exec = require('cordova/exec');
 
-var InAppPurchaseManager = function() { 
-	cordova.exec(function(){}, function(){}, 'InAppPurchaseManager', '.setup', []);
-};
+var iapExport = {};
 
-/**
- * Makes an in-app purchase. 
- * 
- * @param {String} productId The product identifier. e.g. "com.example.MyApp.myproduct"
- * @param {int} quantity 
- */
-
-InAppPurchaseManager.prototype.makePurchase = function(productId, quantity) {
-	cordova.exec(function(){}, function(){}, 'InAppPurchaseManager', 'makePurchase', [ productId, quantity ]);	
-};
-
-/**
- * Asks the payment queue to restore previously completed purchases.
- * The restored transactions are passed to the onRestored callback, so make sure you define a handler for that first.
- * 
- */
-
-InAppPurchaseManager.prototype.restoreCompletedTransactions = function() {
-    return cordova.exec(function(){}, function(){}, 'InAppPurchaseManager', 'restoreCompletedTransactions', []);		
-};
-
-
-/**
- * Retrieves the localised product data, including price (as a localised string), name, description.
- * You must call this before attempting to make a purchase.
- *
- * @param {String} productId The product identifier. e.g. "com.example.MyApp.myproduct"
- * @param {Function} successCallback Called once for each returned product id. Signature is function(productId, title, description, price)
- * @param {Function} failCallback Called once for each invalid product id. Signature is function(productId)
- */
-
-InAppPurchaseManager.prototype.requestProductData = function(productId, successCallback, failCallback) {
-	var key = 'f' + this.callbackIdx++;
-	window.plugins.inAppPurchaseManager.callbackMap[key] = {
-    success: function(productId, title, description, price ) {
-        if (productId == '__DONE') {
-            delete window.plugins.inAppPurchaseManager.callbackMap[key];
-            return;
-        }
-        successCallback(productId, title, description, price);
-    },
-    fail: failCallback
-	};
-	var callback = 'window.plugins.inAppPurchaseManager.callbackMap.' + key;
-    cordova.exec(callback + '.success', callback + '.fail', 'InAppPurchaseManager','requestProductData', [ productId ]);	
+iapExport.setup = function(successCallback, failureCallback) {
+	cordova.exec(successCallback, failureCallback, 'InAppPurchaseManager', 'setup', []);
 };
 
 /**
@@ -67,12 +22,13 @@ InAppPurchaseManager.prototype.requestProductData = function(productId, successC
  *   An array of product identifier strings.
  *
  * @param {Function} callback
- *   Called once with the result of the products request. Signature:
- *
- *     function(validProducts, invalidProductIds)
+ *   Called once with the result of the products request. 
+ *   {
+ *     validProducts : [ ... ],
+ *     invalidIds: [ ... ]
+ *   }
  *
  *   where validProducts receives an array of objects of the form
- *
  *     {
  *      id: "<productId>",
  *      title: "<localised title>",
@@ -80,68 +36,39 @@ InAppPurchaseManager.prototype.requestProductData = function(productId, successC
  *      price: "<localised price>"
  *     }
  *
- *  and invalidProductIds receives an array of product identifier
- *  strings which were rejected by the app store.
+ *  and invalidProductIds receives an array of product identifier strings
+ *  which were rejected by the app store.
  */
-InAppPurchaseManager.prototype.requestProductsData = function(productIds, callback) {
-	var key = 'b' + this.callbackIdx++;
-	window.plugins.inAppPurchaseManager.callbackMap[key] = function(validProducts, invalidProductIds) {
-		delete window.plugins.inAppPurchaseManager.callbackMap[key];
-		callback(validProducts, invalidProductIds);
+iapExport.requestProductData = function(Ids, successCallback, failureCallback) {
+	cordova.exec(successCallback, failureCallback, 'InAppPurchaseManager', 'requestProductData', [Ids]);
+};
+
+/**
+ * Makes an in-app purchase. 
+ * 
+ * @param {String} productId The product identifier. e.g. "com.example.MyApp.myproduct"
+ * @param {int} quantity 
+ */
+iapExport.makePurchase = function(Id, quantity, successCallback, failureCallback) {
+	function finishedCallback(){
+		document.removeEventListener('onInAppPurchaseSuccess', successCallback);
+		document.removeEventListener('onInAppPurchaseFailed', failureCallback);
+		document.removeEventListener('onInAppPurchaseFinished', finishedCallback);
 	};
-	var callbackName = 'window.plugins.inAppPurchaseManager.callbackMap.' + key;
-	cordova.exec(callbackName, function(){}, 'InAppPurchaseManager','requestProductsData', [ productIds ]);
+	document.addEventListener('onInAppPurchaseDone', successCallback);
+	document.addEventListener('onInAppPurchaseFailed', failureCallback);
+	document.addEventListener('onInAppPurchaseFinished', finishedCallback);
+	
+	cordova.exec(successCallback, failureCallback, 'InAppPurchaseManager', 'makePurchase', [Id, quantity]);
 };
 
-/* function(transactionIdentifier, productId, transactionReceipt) */
-InAppPurchaseManager.prototype.onPurchased = null;
-
-/* function(originalTransactionIdentifier, productId, originalTransactionReceipt) */
-InAppPurchaseManager.prototype.onRestored = null;
-
-/* function(errorCode, errorText) */
-InAppPurchaseManager.prototype.onFailed = null;
-
-/* function() */
-InAppPurchaseManager.prototype.onRestoreCompletedTransactionsFinished = null;
-
-/* function(errorCode) */
-InAppPurchaseManager.prototype.onRestoreCompletedTransactionsFailed = null;
-
-/* This is called from native.*/
-
-InAppPurchaseManager.prototype.updatedTransactionCallback = function(state, errorCode, errorText, transactionIdentifier, productId, transactionReceipt) {
-    alert(state);
-	switch(state) {
-		case "PaymentTransactionStatePurchased":
-			if(window.plugins.inAppPurchaseManager.onPurchased)
-                window.plugins.inAppPurchaseManager.onPurchased(transactionIdentifier, productId, transactionReceipt);
-			
-			return; 
-			
-		case "PaymentTransactionStateFailed":
-			if(window.plugins.inAppPurchaseManager.onFailed)
-				window.plugins.inAppPurchaseManager.onFailed(errorCode, errorText);
-			
-			return;
-            
-		case "PaymentTransactionStateRestored":
-            if(window.plugins.inAppPurchaseManager.onRestored)
-                window.plugins.inAppPurchaseManager.onRestored(transactionIdentifier, productId, transactionReceipt);
-			return;
-	}
-};
-
-InAppPurchaseManager.prototype.restoreCompletedTransactionsFinished = function() {
-    if (this.onRestoreCompletedTransactionsFinished) {
-        this.onRestoreCompletedTransactionsFinished();
-    }
-};
-
-InAppPurchaseManager.prototype.restoreCompletedTransactionsFailed = function(errorCode) {
-    if (this.onRestoreCompletedTransactionsFailed) {
-        this.onRestoreCompletedTransactionsFailed(errorCode);
-    }
+/**
+ * Asks the payment queue to restore previously completed purchases.
+ * The restored transactions are passed to the onRestored callback, so make sure you define a handler for that first.
+ * 
+ */
+iapExport.restoreCompletedTransactions = function(successCallback, failureCallback) {
+	cordova.exec(successCallback, failureCallback, 'InAppPurchaseManager', 'restoreCompletedTransactions', []);		
 };
 
 /*
@@ -151,41 +78,7 @@ InAppPurchaseManager.prototype.restoreCompletedTransactionsFailed = function(err
  * in the queue.
  */
 
-InAppPurchaseManager.prototype.runQueue = function() {
-	if(!this.eventQueue.length || (!this.onPurchased && !this.onFailed && !this.onRestored)) {
-		return;
-	}
-	var args;
-	/* We can't work directly on the queue, because we're pushing new elements onto it */
-	var queue = this.eventQueue.slice();
-	this.eventQueue = [];
-	while(args = queue.shift()) {
-		this.updatedTransactionCallback.apply(this, args);
-	}
-	if(!this.eventQueue.length) {	
-		this.unWatchQueue();
-	}
-};
 
-InAppPurchaseManager.prototype.watchQueue = function() {
-	if(this.timer) {
-		return;
-	}
-	this.timer = setInterval("window.plugins.inAppPurchaseManager.runQueue()", 10000);
-};
+module.exports = iapExport;
 
-InAppPurchaseManager.prototype.unWatchQueue = function() {
-	if(this.timer) {
-		clearInterval(this.timer);
-		this.timer = null;
-	}
-};
-
-
-InAppPurchaseManager.prototype.callbackMap = {};
-InAppPurchaseManager.prototype.callbackIdx = 0;
-InAppPurchaseManager.prototype.eventQueue = [];
-InAppPurchaseManager.prototype.timer = null;
-
-module.exports = InAppPurchaseManager.manager = new InAppPurchaseManager();
 

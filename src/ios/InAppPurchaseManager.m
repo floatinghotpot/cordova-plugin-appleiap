@@ -11,24 +11,6 @@
 // Help create NSNull objects for nil items (since neither NSArray nor NSDictionary can store nil values).
 #define NILABLE(obj) ((obj) != nil ? (NSObject *)(obj) : (NSObject *)[NSNull null])
 
-// To avoid compilation warning, declare JSONKit and SBJson's
-// category methods without including their header files.
-@interface NSArray (StubsForSerializers)
-- (NSString *)JSONString;
-- (NSString *)JSONRepresentation;
-@end
-
-// Helper category method to choose which JSON serializer to use.
-@interface NSArray (JSONSerialize)
-- (NSString *)JSONSerialize;
-@end
-
-@implementation NSArray (JSONSerialize)
-- (NSString *)JSONSerialize {
-    return [self respondsToSelector:@selector(JSONString)] ? [self JSONString] : [self JSONRepresentation];
-}
-@end
-
 @implementation InAppPurchaseManager
 
 -(void) setup:(CDVInvokedUrlCommand *)command {
@@ -41,7 +23,7 @@
     NSString *callbackId = command.callbackId;
     NSArray* arguments = command.arguments;
 
-	if([arguments count] < 3) {
+	if([arguments count] < 1) {
 		return;
 	}
 	NSLog(@"Getting product data");
@@ -50,39 +32,10 @@
 
 	ProductsRequestDelegate* delegate = [[ProductsRequestDelegate alloc] init];
 	delegate.command = self;
-	delegate.successCallback = [arguments objectAtIndex:1];
-	delegate.failCallback = [arguments objectAtIndex:2];
+	delegate.callbackId = callbackId;
 
     productsRequest.delegate = delegate;
     [productsRequest start];
-
-}
-
-/**
- * Request product data for the productIds given in the option with
- * key "productIds". See js for further documentation.
- */
-- (void) requestProductsData:(CDVInvokedUrlCommand *)command
-{
-    CDVPluginResult *pluginResult;
-    NSString *callbackId = command.callbackId;
-    NSArray* arguments = command.arguments;
-
-	if([arguments count] < 1) {
-		return;
-	}
-
-	NSSet *productIdentifiers = [NSSet setWithArray:[arguments objectAtIndex:0]];
-
-	NSLog(@"Getting products data");
-	SKProductsRequest *productsRequest = [[SKProductsRequest alloc] initWithProductIdentifiers:productIdentifiers];
-
-	BatchProductsRequestDelegate* delegate = [[BatchProductsRequestDelegate alloc] init];
-	delegate.command = self;
-	delegate.callback = [arguments objectAtIndex:0];
-
-	productsRequest.delegate = delegate;
-	[productsRequest start];
 }
 
 - (void) makePurchase:(CDVInvokedUrlCommand *)command
@@ -117,151 +70,111 @@
 //
 - (void)paymentQueue:(SKPaymentQueue *)queue updatedTransactions:(NSArray *)transactions
 {
-	NSString *state, *error, *transactionIdentifier, *transactionReceipt, *productId;
-	NSInteger errorCode;
-
-    for (SKPaymentTransaction *transaction in transactions)
-    {
-		error = state = transactionIdentifier = transactionReceipt = productId = @"";
-		errorCode = 0;
-
-        switch (transaction.transactionState)
-        {
+	NSString *state;
+    for (SKPaymentTransaction *transaction in transactions) {
+		state = @"";
+        switch (transaction.transactionState) {
 			case SKPaymentTransactionStatePurchasing:
 				continue;
 
             case SKPaymentTransactionStatePurchased:
 				state = @"PaymentTransactionStatePurchased";
-				transactionIdentifier = transaction.transactionIdentifier;
-				transactionReceipt = [[transaction transactionReceipt] base64EncodedString];
-				productId = transaction.payment.productIdentifier;
+				NSString *jsString =
+						@"cordova.fireDocumentEvent('onInAppPurchaseSuccess',"
+						@"{ 'productId': '%@', 'transactionId': '%@', 'transactionReceipt' : '%@' });";
+				[self writeJavascript:[NSString stringWithFormat:jsString,
+				                       transaction.payment.productIdentifier,
+				                       transaction.transactionIdentifier,
+				                       [[transaction transactionReceipt] base64EncodedString]]];
                 break;
 
 			case SKPaymentTransactionStateFailed:
 				state = @"PaymentTransactionStateFailed";
-				error = transaction.error.localizedDescription;
-				errorCode = transaction.error.code;
-				NSLog(@"error %d %@", errorCode, error);
-
+				NSString *jsString =
+					@"cordova.fireDocumentEvent('onInAppPurchaseFailed',"
+					@"{ 'errorCode': '%@', 'errorMsg' : '%@' });";
+				[self writeJavascript:[NSString stringWithFormat:jsString,
+				                       transaction.error.code,
+				                       transaction.error.localizedDescription]];
                 break;
 
 			case SKPaymentTransactionStateRestored:
 				state = @"PaymentTransactionStateRestored";
-				transactionIdentifier = transaction.originalTransaction.transactionIdentifier;
-				transactionReceipt = [[transaction transactionReceipt] base64EncodedString];
-				productId = transaction.originalTransaction.payment.productIdentifier;
-                break;
+				NSString *jsString =
+						@"cordova.fireDocumentEvent('onInAppPurchaseRestored',"
+						@"{ 'productId': '%@', 'transactionId': '%@', 'transactionReceipt' : '%@' });";
+				[self writeJavascript:[NSString stringWithFormat:jsString,
+				                       transaction.originalTransaction.payment.productIdentifier,
+				                       transaction.originalTransaction.transactionIdentifier,
+				                       [[transaction transactionReceipt] base64EncodedString];
+				break;
 
             default:
 				NSLog(@"Invalid state");
                 continue;
         }
 		NSLog(@"state: %@", state);
-        NSArray *callbackArgs = [NSArray arrayWithObjects:
-                                 NILABLE(state),
-                                 [NSNumber numberWithInt:errorCode],
-                                 NILABLE(error),
-                                 NILABLE(transactionIdentifier),
-                                 NILABLE(productId),
-                                 NILABLE(transactionReceipt),
-                                 nil];
-		NSString *js = [NSString stringWithFormat:@"plugins.inAppPurchaseManager.updatedTransactionCallback.apply(plugins.inAppPurchaseManager, %@)", [callbackArgs JSONSerialize]];
-		NSLog(@"js: %@", js);
-		[self writeJavascript: js];
-		[[SKPaymentQueue defaultQueue] finishTransaction:transaction];
 
+		[[SKPaymentQueue defaultQueue] finishTransaction:transaction];
     }
+
+	[self writeJavascript:@"cordova.fireDocumentEvent('onInAppPurchaseFinished');"];
 }
 
 - (void)paymentQueue:(SKPaymentQueue *)queue restoreCompletedTransactionsFailedWithError:(NSError *)error
 {
-	NSString *js = [NSString stringWithFormat:@"plugins.inAppPurchaseManager.onRestoreCompletedTransactionsFailed(%d)", error.code];
-	[self writeJavascript: js];
+	NSString *jsString =
+		@"cordova.fireDocumentEvent('onRestoreCompletedTransactionsFailed',"
+		@"{ 'errorCode': '%@', 'errorMsg' : '%@' });";
+	[self writeJavascript:[NSString stringWithFormat:jsString, error.code, error.localizedDescription]];
 }
 
 - (void)paymentQueueRestoreCompletedTransactionsFinished:(SKPaymentQueue *)queue
 {
-	NSString *js = @"plugins.inAppPurchaseManager.onRestoreCompletedTransactionsFinished()";
-	[self writeJavascript: js];
+	[self writeJavascript:
+	@"cordova.fireDocumentEvent('onRestoreCompletedTransactionsFinished');"];
 }
 
 @end
 
 @implementation ProductsRequestDelegate
 
-@synthesize successCallback, failCallback, command;
-
+@synthesize command, callbackId;
 
 - (void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response
 {
 	NSLog(@"got iap product response");
+
+	NSMutableArray * validProducts = [NSMutableArray array];
     for (SKProduct *product in response.products) {
-		NSLog(@"sending js for %@", product.productIdentifier);
-        NSArray *callbackArgs = [NSArray arrayWithObjects:
-                                 NILABLE(product.productIdentifier),
-                                 NILABLE(product.localizedTitle),
-                                 NILABLE(product.localizedDescription),
-                                 NILABLE(product.localizedPrice),
-                                 nil];
-		NSString *js = [NSString stringWithFormat:@"%@.apply(plugins.inAppPurchaseManager, %@)", successCallback, [callbackArgs JSONSerialize]];
-		NSLog(@"js: %@", js);
-		[command writeJavascript: js];
+    	NSDictionary * item = [NSDictionary dictionaryWithObjectsAndKeys:
+    	                                  NILABLE(product.productIdentifier), @"id",
+    	                                  NILABLE(product.localizedTitle), @"title",
+    	                                  NILABLE(product.localizedDescription), @"description",
+    	                                  NILABLE(product.localizedPrice), @"price",
+    	                                  nil];
+    	[validProducts addObject:item];
     }
 
-    for (NSString *invalidProductId in response.invalidProductIdentifiers) {
-		NSLog(@"sending fail (%@) js for %@", failCallback, invalidProductId);
+    NSDictionary * reply = [NSDictionary dictionaryWithObjectsAndKeys:
+                            validProducts, @"validProducts",
+                            NILABLE(response.invalidProductIdentifiers), @"invalidIds",
+                            nil];
 
-		[command writeJavascript: [NSString stringWithFormat:@"%@('%@')", failCallback, invalidProductId]];
-    }
-	NSLog(@"done iap");
+    CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:reply];
+	[command.commandDelegate sendPluginResult:pluginResult callbackId:callbackId];
 
-	[command writeJavascript: [NSString stringWithFormat:@"%@('__DONE')", successCallback]];
+	request.delegate = nil;
+	request = nil;
+	response = nil;
 }
 
 - (void) dealloc
 {
-    successCallback = nil;
-    failCallback = nil;
+	callbackId = nil;
     command = nil;
 }
 
 
 @end
 
-/**
- * Receives product data for multiple productIds and passes arrays of
- * js objects containing these data to a single callback method.
- */
-@implementation BatchProductsRequestDelegate
-
-@synthesize callback, command;
-
-- (void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response {
-
-    NSMutableArray *validProducts = [NSMutableArray array];
-	for (SKProduct *product in response.products) {
-        [validProducts addObject:
-         [NSDictionary dictionaryWithObjectsAndKeys:
-          NILABLE(product.productIdentifier),    @"id",
-          NILABLE(product.localizedTitle),       @"title",
-          NILABLE(product.localizedDescription), @"description",
-          NILABLE(product.localizedPrice),       @"price",
-          nil]];
-    }
-
-    NSArray *callbackArgs = [NSArray arrayWithObjects:
-                             NILABLE(validProducts),
-                             NILABLE(response.invalidProductIdentifiers),
-                             nil];
-	NSString *js = [NSString stringWithFormat:@"%@.apply(plugins.inAppPurchaseManager, %@);", callback, [callbackArgs JSONSerialize]];
-	[command writeJavascript: js];
-
-    request = nil;
-}
-
-- (void) dealloc {
-    callback = nil;
-    command = nil;
-}
-
-@end
