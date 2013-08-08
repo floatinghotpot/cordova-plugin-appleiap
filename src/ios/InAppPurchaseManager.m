@@ -38,8 +38,10 @@
 		return;
 	}
     
-	NSLog(@"Getting product data");
-	NSSet *productIdentifiers = [NSSet setWithObject:[arguments objectAtIndex:0]];
+    NSSet * productIdentifiers = [arguments objectAtIndex:0];
+	NSLog(@"Getting product data: %@", productIdentifiers);
+    NSLog(@"requestProductData - param count: %d", [productIdentifiers count]);
+    
     SKProductsRequest *request = [[SKProductsRequest alloc] initWithProductIdentifiers:productIdentifiers];
     
     [productRequests setValue:request forKey:callbackId];
@@ -63,6 +65,8 @@
                                nil];
     	[validProducts addObject:item];
     }
+    
+    NSLog(@"valid products - count: %d", [validProducts count]);
     
     NSDictionary * reply = [NSDictionary dictionaryWithObjectsAndKeys:
                             validProducts, @"validProducts",
@@ -92,7 +96,11 @@
 	}
 
     NSString * productId = [arguments objectAtIndex:0];
+    NSLog(@"makePurchase - Id: %@", productId);
+    
     SKProduct * product = [cachedProducts objectForKey:productId];
+    NSLog(@"makePurchase - product: %@", product);
+    
     if( product != nil ) {
         SKMutablePayment *payment = [SKMutablePayment paymentWithProduct:product];
         if([arguments count] > 1) {
@@ -131,13 +139,17 @@
 				                       transaction.payment.productIdentifier,
 				                       transaction.transactionIdentifier,
 				                       [[transaction transactionReceipt] base64EncodedString]]];
+                NSLog( jsString,
+                        transaction.payment.productIdentifier,
+                        transaction.transactionIdentifier,
+                        [[transaction transactionReceipt] base64EncodedString] );
                 break;
 
 			case SKPaymentTransactionStateFailed:
 				state = @"PaymentTransactionStateFailed";
 				jsString =
 					@"cordova.fireDocumentEvent('onInAppPurchaseFailed',"
-					@"{ 'errorCode': '%@', 'errorMsg' : '%@' });";
+					@"{ 'errorCode': '%d', 'errorMsg' : '%@' });";
 				[self writeJavascript:[NSString stringWithFormat:jsString,
 				                       transaction.error.code,
 				                       transaction.error.localizedDescription]];
