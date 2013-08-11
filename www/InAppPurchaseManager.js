@@ -50,15 +50,6 @@ iapExport.requestProductData = function(Ids, successCallback, failureCallback) {
  * @param {int} quantity 
  */
 iapExport.makePurchase = function(Id, quantity, successCallback, failureCallback) {
-	function finishedCallback(){
-		document.removeEventListener('onInAppPurchaseSuccess', successCallback);
-		document.removeEventListener('onInAppPurchaseFailed', failureCallback);
-		document.removeEventListener('onInAppPurchaseFinished', finishedCallback);
-	};
-	document.addEventListener('onInAppPurchaseDone', successCallback);
-	document.addEventListener('onInAppPurchaseFailed', failureCallback);
-	document.addEventListener('onInAppPurchaseFinished', finishedCallback);
-	
 	cordova.exec(successCallback, failureCallback, 'InAppPurchaseManager', 'makePurchase', [Id, quantity]);
 };
 

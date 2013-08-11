@@ -39,9 +39,8 @@
 	}
     
     NSSet * productIdentifiers = [arguments objectAtIndex:0];
-	NSLog(@"Getting product data: %@", productIdentifiers);
-    NSLog(@"requestProductData - param count: %d", [productIdentifiers count]);
-    
+	NSLog(@"requestProductData: %@", productIdentifiers);
+     
     SKProductsRequest *request = [[SKProductsRequest alloc] initWithProductIdentifiers:productIdentifiers];
     
     [productRequests setValue:request forKey:callbackId];
@@ -51,14 +50,14 @@
 
 - (void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response
 {
-	NSLog(@"got iap product response");
+	NSLog(@"got response for requestProductData");
     
 	NSMutableArray * validProducts = [NSMutableArray array];
     for (SKProduct *product in response.products) {
         [cachedProducts setObject:product forKey:product.productIdentifier];
 
     	NSDictionary * item = [NSDictionary dictionaryWithObjectsAndKeys:
-                               NILABLE(product.productIdentifier), @"id",
+                               NILABLE(product.productIdentifier), @"productId",
                                NILABLE(product.localizedTitle), @"title",
                                NILABLE(product.localizedDescription), @"description",
                                NILABLE(product.localizedPrice), @"price",
@@ -90,7 +89,7 @@
 {
     NSArray* arguments = command.arguments;
 
-    NSLog(@"About to do IAP");
+    NSLog(@"makePurchase called");
 	if([arguments count] < 1) {
 		return;
 	}
@@ -139,10 +138,6 @@
 				                       transaction.payment.productIdentifier,
 				                       transaction.transactionIdentifier,
 				                       [[transaction transactionReceipt] base64EncodedString]]];
-                NSLog( jsString,
-                        transaction.payment.productIdentifier,
-                        transaction.transactionIdentifier,
-                        [[transaction transactionReceipt] base64EncodedString] );
                 break;
 
 			case SKPaymentTransactionStateFailed:
