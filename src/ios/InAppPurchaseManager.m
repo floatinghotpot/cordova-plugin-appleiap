@@ -131,6 +131,9 @@
 
             case SKPaymentTransactionStatePurchased:
 				state = @"PaymentTransactionStatePurchased";
+                NSLog(@"state: %@, productId: %@",
+                      state,
+                      transaction.payment.productIdentifier);
 				jsString =
 						@"cordova.fireDocumentEvent('onInAppPurchaseSuccess',"
 						@"{ 'productId': '%@', 'transactionId': '%@', 'transactionReceipt' : '%@' });";
@@ -142,16 +145,25 @@
 
 			case SKPaymentTransactionStateFailed:
 				state = @"PaymentTransactionStateFailed";
+                NSLog(@"state: %@, errorCode: %d, errorMsg: %@",
+                      state,
+                      transaction.error.code,
+                      transaction.error.localizedDescription);
 				jsString =
 					@"cordova.fireDocumentEvent('onInAppPurchaseFailed',"
 					@"{ 'errorCode': '%d', 'errorMsg' : '%@' });";
 				[self writeJavascript:[NSString stringWithFormat:jsString,
 				                       transaction.error.code,
-				                       transaction.error.localizedDescription]];
+                                       @"In-App purchase failed." ]];
+                                       // cannot pass the japanese localized string, so we avoid pass the text message as a workaround.
+				                       //transaction.error.localizedDescription]];
                 break;
 
 			case SKPaymentTransactionStateRestored:
 				state = @"PaymentTransactionStateRestored";
+                NSLog(@"state: %@, productId: %@",
+                      state,
+                      transaction.originalTransaction.payment.productIdentifier);
 				jsString =
 						@"cordova.fireDocumentEvent('onInAppPurchaseRestored',"
 						@"{ 'productId': '%@', 'transactionId': '%@', 'transactionReceipt' : '%@' });";
@@ -165,7 +177,7 @@
 				NSLog(@"Invalid state");
                 continue;
         }
-		NSLog(@"state: %@", state);
+		
 
 		[[SKPaymentQueue defaultQueue] finishTransaction:transaction];
     }
