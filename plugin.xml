@@ -9,7 +9,10 @@
 	<description>Add Apple In-App Purchase support</description>
 	<author>Liming Xie</author>
 	<license>MIT</license>
-	
+	<engines>
+	    <engine name="cordova" version=">=3.0" />
+	</engines>
+
     <js-module src="www/InAppPurchaseManager.js" name="InAppPurchaseManager">
         <clobbers target="window.plugins.InAppPurchaseManager" />
     </js-module>
