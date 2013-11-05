@@ -6,7 +6,7 @@
       version="1.0">
       
     <name>InAppPurchaseManager</name>
-	<description>Add Apple In-App Purchase support</description>
+	<description>Add Apple In-App Purchase support (iOS only)</description>
 	<author>Liming Xie</author>
 	<license>MIT</license>
 	<engines>
