@@ -1,0 +1,32 @@
+{
+  "name": "cordova-plugin-appleiap",
+  "version": "1.0.0",
+  "description": "Cordova Plugin for Apple In-App purchase",
+  "cordova": {
+    "id": "cordova-plugin-appleiap",
+    "platforms": [
+      "ios"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/floatinghotpot/cordova-plugin-appleiap.git"
+  },
+  "bugs": {
+    "url": "https://github.com/floatinghotpot/cordova-plugin-appleiap/issues"
+  },
+  "keywords": [
+    "cordova",
+    "ecosystem:cordova",
+    "pay",
+    "payment",
+    "apple",
+    "iap",
+    "rjfun"
+  ],
+  "author": {
+    "name": "Raymond Xie",
+    "email": "rjfun.mobile@gmail.com"
+  },
+  "license": "MIT"
+}
